@@ -42,7 +42,7 @@ static column_type_t get_single_type(char *str)
 }
 
 static int get_type(dataframe_t *dataframe, int col_num,
-    char ***lines, c_alloc_t *buff_alloc)
+    char ***lines)
 {
     column_type_t real_type = get_single_type(lines[0][col_num]);
     column_type_t found_type = UNDEFINED;
@@ -117,7 +117,7 @@ static dataframe_t *fill_data_final(dataframe_t *dataframe,
     char ***sep_lines, c_alloc_t *buff_alloc)
 {
     for (int i = 0; i < dataframe->nb_columns; i++) {
-        if (get_type(dataframe, i, sep_lines, buff_alloc) == DF_FAIL ||
+        if (get_type(dataframe, i, sep_lines) == DF_FAIL ||
             write_line(sep_lines, i, dataframe) == DF_FAIL)
             return free_return(false, dataframe, buff_alloc);
     }

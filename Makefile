@@ -11,7 +11,7 @@ HDR := $(shell find . -name '*.h')
 all: $(TARGET) clean
 
 $(TARGET): $(SRC) 
-	clang -c $(SRC)
+	clang -c $(SRC) -lm
 	ar rc $(TARGET) *.o
 
 clean:
@@ -36,4 +36,4 @@ epiclang_all:
 	epiclang $(SRC) $(HDR)
 
 main: clean
-	clang $(SRC) $(FLAGS) -o cuddle
+	clang $(SRC) $(FLAGS) -lm -o cuddle

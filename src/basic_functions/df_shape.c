@@ -9,5 +9,9 @@
 
 dataframe_shape_t df_shape(dataframe_t *dataframe)
 {
-    return (dataframe_shape_t){0, 0}; // Wtf ?
+    dataframe_shape_t shape = {0, 0};
+
+    shape.nb_columns = dataframe->nb_columns;
+    shape.nb_rows = dataframe->nb_rows;
+    return shape;
 }

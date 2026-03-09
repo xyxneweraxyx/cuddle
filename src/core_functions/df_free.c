@@ -9,5 +9,5 @@
 
 void df_free(dataframe_t *dataframe)
 {
-    
+    c_delete(dataframe->alloc, true);
 }

@@ -10,6 +10,7 @@
 
     // Includes
     #include <stdio.h>
+    #include <math.h>
     #include <fcntl.h>
     #include <unistd.h>
     #include <sys/stat.h>
@@ -20,6 +21,9 @@
     // Exit codes
     #define DF_SUCC 0
     #define DF_FAIL 84
+
+    // Strings
+    #define DF_DESCRIBE "Column: %s\nCount: %d\nMean: %.2f\nStd: %.2f\nMin: %.2f\nMax: %.2f\n"
 
 // Typedefs
 
@@ -57,7 +61,6 @@ typedef struct column_s {
     char *name;
     data_t *data;
     column_type_t type;
-    column_data_t math_data;
 } column_t;
 
 typedef struct dataframe_s {
@@ -109,17 +112,14 @@ void *df_get_value(dataframe_t *dataframe, int row, const char *column);
 void **df_get_unique_values(dataframe_t *dataframe, const char *column);
 
 // Private functions
+dataframe_t *free_return(bool success,
+    dataframe_t *dataframe, c_alloc_t *alloc_to_free);
+char **str_to_array(const char *str, const char **sep,
+    bool skip_empty, c_alloc_t *alloc);
+void print_data(dataframe_t *dataframe); // FONCTION DE DEBUG
+
 dataframe_t *dfp_from_lines(const char **lines, const char *separator); // Va être utilisé pour le filtering et pour read_csv
 int dfp_invert_rows(dataframe_t *dataframe, int row1, int row2); // Va être utilisé pour le sorting
 int dfp_is_conversion_correct(column_type_t from, column_type_t to); // Va être utilisé pour le to_type
-char **str_to_array(const char *str, const char **sep,
-    bool skip_empty, c_alloc_t *alloc);
-
-/*
-name,age,city
-Alice,25,Paris
-Bob,30,London
-Charlie,35,Berlin
-*/
 
 #endif

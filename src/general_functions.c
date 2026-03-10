@@ -7,38 +7,74 @@
 
 #include "./../include/dataframe.h"
 
-static void print_single_data(int col, int row,
-    column_type_t type, dataframe_t *dataframe)
+static int copy_data(dataframe_t *old_df, dataframe_t *new_df)
 {
-    if (type == BOOL)
-        printf("%d %d BOOL [%d]\n", col, row,
-            (int)dataframe->columns[col].data[row].b);
-    if (type == INT)
-        printf("%d %d INT [%d]\n", col, row,
-            dataframe->columns[col].data[row].i);
-    if (type == UINT)
-        printf("%d %d UINT [%u]\n", col, row,
-            dataframe->columns[col].data[row].ui);
-    if (type == FLOAT)
-        printf("%d %d FLOAT [%f]\n", col, row,
-            dataframe->columns[col].data[row].f);
-    if (type == STRING)
-        printf("%d %d STRING [%s]\n", col, row,
-            dataframe->columns[col].data[row].str);
+    new_df->nb_columns = old_df->nb_columns;
+    new_df->nb_rows = old_df->nb_rows;
+    new_df->sep = c_alloc(sizeof(char),
+        str_len(old_df->sep) + 1, new_df->alloc);
+    if (!new_df->sep)
+        return DF_FAIL;
+    str_cpy(old_df->sep, new_df->sep);
+    new_df->columns = c_alloc(sizeof(column_t),
+        new_df->nb_columns, new_df->alloc);
+    if (!new_df->columns)
+        return DF_FAIL;
+    for (int i = 0; i < new_df->nb_columns; i++) {  
+        new_df->columns[i].type = old_df->columns[i].type;
+        new_df->columns[i].name = c_alloc(sizeof(char),
+            str_len(old_df->columns[i].name) + 1, new_df->alloc);
+        if (!new_df->columns[i].name)
+            return DF_FAIL;
+        str_cpy(old_df->columns[i].name, new_df->columns[i].name);
+    }
+    return DF_SUCC;
 }
 
-void print_data(dataframe_t *dataframe)
+dataframe_t *new_dataframe(dataframe_t *old_df)
 {
-    printf("\nCOLUMN NAMES ----\n");
-    for (int i = 0; i < dataframe->nb_columns; i++)
-        printf("%d %s\n", i, dataframe->columns[i].name);
-    printf("\n");
-    for (int i = 0; i < dataframe->nb_columns; i++) {
-        printf("COL %d ----\n", i);
-        for (int j = 0; j < dataframe->nb_rows; j++)
-            print_single_data(i, j, dataframe->columns[i].type, dataframe);
-        printf("\n");
+    c_alloc_t *alloc = NULL;
+    dataframe_t *new_df = NULL;
+
+    if (!old_df)
+        return NULL;
+    alloc = c_ini((uint16_t)50);
+    if (!alloc)
+        return NULL;
+    new_df = c_alloc(sizeof(dataframe_t), 1, alloc);
+    if (!new_df) {
+        c_delete(alloc, true);
+        return NULL;
     }
+    new_df->alloc = alloc;
+    if (copy_data(old_df, new_df) == DF_FAIL) {
+        c_delete(alloc, true);
+        return NULL;
+    }
+    return new_df;
+}
+
+int copy_all_data(dataframe_t *old_df, dataframe_t *new_df)
+{
+    for (int i = 0; i < new_df->nb_columns; i++) {
+        new_df->columns[i].data = c_alloc(sizeof(data_t),
+            new_df->nb_rows, new_df->alloc);
+        if (!new_df->columns[i].data)
+            return DF_FAIL;
+        for (int j = 0; j < new_df->nb_rows; j++) {
+            if (old_df->columns[i].type != STRING) {
+                new_df->columns[i].data[j] = old_df->columns[i].data[j];
+                continue;
+            }
+            new_df->columns[i].data[j].str = c_alloc(sizeof(char),
+                str_len(old_df->columns[i].data[j].str) + 1, new_df->alloc);
+            if (!new_df->columns[i].data[j].str)
+                return DF_FAIL;
+            str_cpy(old_df->columns[i].data[j].str,
+                new_df->columns[i].data[j].str);
+        }
+    }
+    return DF_SUCC;
 }
 
 dataframe_t *free_return(bool success,

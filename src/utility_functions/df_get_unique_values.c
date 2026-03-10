@@ -12,7 +12,7 @@ static bool is_value_unique(dataframe_t *dataframe, int col, int row)
     column_type_t type = dataframe->columns[col].type;
     data_t *data = dataframe->columns[col].data;
 
-    for (int i = 0; type == BOOL && i < row; i++) {
+    for (int i = 0; i < row; i++) {
         if (type == BOOL && data[i].b == data[row].b)
             return false;
         if (type == UINT && data[i].ui == data[row].ui)
@@ -31,7 +31,7 @@ static int write_data(dataframe_t *dataframe, int col, void **values)
 {
     int written = 0;
 
-    for (int i = 0; i <= dataframe->nb_rows; i++) {
+    for (int i = 0; i < dataframe->nb_rows; i++) {
         if (is_value_unique(dataframe, col, i)) {
             values[written] = (void *)&(dataframe->columns[col].data[i]);
             written++;
@@ -53,7 +53,7 @@ void **df_get_unique_values(dataframe_t *dataframe, const char *column)
     for (int i = 0; i < dataframe->nb_rows; i++)
         values[i] = NULL;
     for (; column_num < dataframe->nb_columns &&
-        !str_cmp(column, dataframe->columns[column_num].name); column_num++);
+        str_cmp(column, dataframe->columns[column_num].name); column_num++);
     if (column_num == dataframe->nb_columns) {
         free(values);
         return NULL;

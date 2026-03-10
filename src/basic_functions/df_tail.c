@@ -35,7 +35,7 @@ static int write_single_data(dataframe_t *old_df,
     dataframe_t *new_df, int row, int col)
 {
     column_type_t type = old_df->columns[col].type;
-    data_t *old_data = &(old_df->columns[col].data[old_df->nb_rows- row - 1]);
+    data_t *old_data = &(old_df->columns[col].data[old_df->nb_rows - new_df->nb_rows + row]);
     data_t *new_data = &(new_df->columns[col].data[row]);
 
     if (type == BOOL)

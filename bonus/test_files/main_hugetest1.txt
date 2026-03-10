@@ -4,7 +4,6 @@
 ** Compile: gcc test_df_read_csv_all.c -L. -lcuddle -o test_all
 */
 
-/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -692,4 +691,3 @@ int main(void)
 
     return (g_failed > 0) ? 84 : 0;
 }
-*/

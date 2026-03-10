@@ -78,6 +78,14 @@ typedef struct parse_state_s {
     int cur;
 } parse_state_t;
 
+typedef struct groupby_s {
+    dataframe_t *old_df;
+    dataframe_t *new_df;
+    int group_col;
+    int new_col;
+    void *(*agg_func)(void **, int);
+} groupby_t;
+
 // Functions
 
 // Public functions
@@ -112,14 +120,18 @@ void *df_get_value(dataframe_t *dataframe, int row, const char *column);
 void **df_get_unique_values(dataframe_t *dataframe, const char *column);
 
 // Private functions
+dataframe_t *new_dataframe(dataframe_t *old_df);
 dataframe_t *free_return(bool success,
     dataframe_t *dataframe, c_alloc_t *alloc_to_free);
 char **str_to_array(const char *str, const char **sep,
     bool skip_empty, c_alloc_t *alloc);
-void print_data(dataframe_t *dataframe); // FONCTION DE DEBUG
+int copy_all_data(dataframe_t *old_df, dataframe_t *new_df);
 
-dataframe_t *dfp_from_lines(const char **lines, const char *separator); // Va être utilisé pour le filtering et pour read_csv
-int dfp_invert_rows(dataframe_t *dataframe, int row1, int row2); // Va être utilisé pour le sorting
-int dfp_is_conversion_correct(column_type_t from, column_type_t to); // Va être utilisé pour le to_type
+// Groupby functions
+int find_col(dataframe_t *df, const char *name);
+bool data_eq(data_t a, data_t b, column_type_t type);
+bool is_first_occ(dataframe_t *df, int col, int row);
+int count_in_group(groupby_t *gb, int ref_row);
+void **collect_group(groupby_t *gb, int ref_row, int agg_col);
 
 #endif

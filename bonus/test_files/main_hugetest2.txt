@@ -1,0 +1,898 @@
+/*
+** EPITECH PROJECT, 2025
+** cuddle - tests basiques, utilitaires, apply
+** Tests
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "include/dataframe.h"
+
+static int g_passed = 0;
+static int g_failed = 0;
+static int g_total = 0;
+
+/* ─── helpers ─────────────────────────────────────────────────── */
+
+static void pass(const char *name)
+{
+    printf("  \033[32m[PASS]\033[0m %s\n", name);
+    g_passed++;
+    g_total++;
+}
+
+static void fail(const char *name, const char *reason)
+{
+    printf("  \033[31m[FAIL]\033[0m %s\n         → %s\n", name, reason);
+    g_failed++;
+    g_total++;
+}
+
+static void section(const char *title)
+{
+    printf("\n\033[1;34m══ %s ══\033[0m\n", title);
+}
+
+static void check_shape(const char *name, dataframe_t *df,
+    int exp_rows, int exp_cols)
+{
+    char buf[256];
+
+    if (!df) { fail(name, "df est NULL"); return; }
+    if (df->nb_rows == exp_rows && df->nb_columns == exp_cols) {
+        pass(name);
+    } else {
+        snprintf(buf, sizeof(buf), "shape (%d, %d) attendu (%d, %d)",
+            df->nb_rows, df->nb_columns, exp_rows, exp_cols);
+        fail(name, buf);
+    }
+    df_free(df);
+}
+
+static void check_null(const char *name, dataframe_t *df)
+{
+    if (!df) { pass(name); return; }
+    fail(name, "attendu NULL, got non-NULL");
+    df_free(df);
+}
+
+static void check_str_val(const char *name, dataframe_t *df,
+    int col, int row, const char *expected)
+{
+    char buf[256];
+
+    if (!df) { fail(name, "df est NULL"); return; }
+    char *got = df->columns[col].data[row].str;
+    if (got && strcmp(got, expected) == 0) {
+        pass(name);
+    } else {
+        snprintf(buf, sizeof(buf), "col[%d][%d] = \"%s\", attendu \"%s\"",
+            col, row, got ? got : "NULL", expected);
+        fail(name, buf);
+    }
+    df_free(df);
+}
+
+static void check_uint_val(const char *name, dataframe_t *df,
+    int col, int row, unsigned int expected)
+{
+    char buf[256];
+
+    if (!df) { fail(name, "df est NULL"); return; }
+    unsigned int got = df->columns[col].data[row].ui;
+    if (got == expected) {
+        pass(name);
+    } else {
+        snprintf(buf, sizeof(buf), "col[%d][%d].ui = %u, attendu %u",
+            col, row, got, expected);
+        fail(name, buf);
+    }
+    df_free(df);
+}
+
+static void check_int_val(const char *name, dataframe_t *df,
+    int col, int row, int expected)
+{
+    char buf[256];
+
+    if (!df) { fail(name, "df est NULL"); return; }
+    int got = df->columns[col].data[row].i;
+    if (got == expected) {
+        pass(name);
+    } else {
+        snprintf(buf, sizeof(buf), "col[%d][%d].i = %d, attendu %d",
+            col, row, got, expected);
+        fail(name, buf);
+    }
+    df_free(df);
+}
+
+static void check_float_val(const char *name, dataframe_t *df,
+    int col, int row, float expected, float eps)
+{
+    char buf[256];
+    float diff;
+
+    if (!df) { fail(name, "df est NULL"); return; }
+    float got = df->columns[col].data[row].f;
+    diff = got - expected;
+    if (diff < 0) diff = -diff;
+    if (diff < eps) {
+        pass(name);
+    } else {
+        snprintf(buf, sizeof(buf), "col[%d][%d].f = %f, attendu %f",
+            col, row, got, expected);
+        fail(name, buf);
+    }
+    df_free(df);
+}
+
+static void check_bool_val(const char *name, dataframe_t *df,
+    int col, int row, int expected)
+{
+    char buf[256];
+
+    if (!df) { fail(name, "df est NULL"); return; }
+    int got = (int)df->columns[col].data[row].b;
+    if (got == expected) {
+        pass(name);
+    } else {
+        snprintf(buf, sizeof(buf), "col[%d][%d].b = %d, attendu %d",
+            col, row, got, expected);
+        fail(name, buf);
+    }
+    df_free(df);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_head                                                        */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void test_head_shape(void)
+{
+    dataframe_t *df;
+    dataframe_t *orig;
+
+    section("df_head - SHAPE");
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 2);
+    check_shape("head(2) sur 3 rows: shape (2, 3)", df, 2, 3);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 1);
+    check_shape("head(1): shape (1, 3)", df, 1, 3);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 3);
+    check_shape("head(n == nb_rows): shape (3, 3)", df, 3, 3);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 10);
+    check_shape("head(n > nb_rows): clamp a (3, 3)", df, 3, 3);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/multi_types.csv", ",");
+    df = df_head(orig, 3);
+    check_shape("head multi-types: shape (3, 5)", df, 3, 5);
+    df_free(orig);
+}
+
+static void test_head_values(void)
+{
+    dataframe_t *df;
+    dataframe_t *orig;
+
+    section("df_head - VALEURS");
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 2);
+    check_str_val("head(2): col[0][0] = Alice", df, 0, 0, "Alice");
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 2);
+    check_str_val("head(2): col[0][1] = Bob", df, 0, 1, "Bob");
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 2);
+    check_uint_val("head(2): col[1][0] = 25", df, 1, 0, 25);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_head(orig, 2);
+    check_uint_val("head(2): col[1][1] = 30", df, 1, 1, 30);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/multi_types.csv", ",");
+    df = df_head(orig, 2);
+    check_uint_val("head multi-types: age[0] = 25", df, 1, 0, 25);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/multi_types.csv", ",");
+    df = df_head(orig, 2);
+    check_bool_val("head multi-types: active[0] = true", df, 3, 0, 1);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/multi_types.csv", ",");
+    df = df_head(orig, 2);
+    check_float_val("head multi-types: ratio[1] = 2.5", df, 4, 1, 2.5f, 0.01f);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/negative_only.csv", ",");
+    df = df_head(orig, 2);
+    check_int_val("head negatifs: col[1][0] = -10", df, 1, 0, -10);
+    df_free(orig);
+}
+
+static void test_head_independence(void)
+{
+    dataframe_t *orig;
+    dataframe_t *head;
+
+    section("df_head - INDEPENDANCE");
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    head = df_head(orig, 2);
+    if (!head) { fail("independance: head est NULL", ""); df_free(orig); return; }
+
+    /* modifier l'original ne doit pas affecter head */
+    orig->columns[0].data[0].str[0] = 'X';
+    if (strcmp(head->columns[0].data[0].str, "Alice") == 0)
+        pass("independance: deep copy, modif original sans effet");
+    else
+        fail("independance: shallow copy detectee", "Alice attendu");
+    df_free(orig);
+    df_free(head);
+
+    /* sep independant */
+    orig = df_read_csv("test_csv/semicolon.csv", ";");
+    head = df_head(orig, 1);
+    if (head && strcmp(head->sep, ";") == 0)
+        pass("head: sep copie correctement");
+    else
+        fail("head: sep non copie", ";  attendu");
+    df_free(orig);
+    if (head) df_free(head);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_tail                                                        */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void test_tail_shape(void)
+{
+    dataframe_t *df;
+    dataframe_t *orig;
+
+    section("df_tail - SHAPE");
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_tail(orig, 2);
+    check_shape("tail(2) sur 3 rows: shape (2, 3)", df, 2, 3);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_tail(orig, 1);
+    check_shape("tail(1): shape (1, 3)", df, 1, 3);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_tail(orig, 10);
+    check_shape("tail(n > nb_rows): clamp a (3, 3)", df, 3, 3);
+    df_free(orig);
+}
+
+static void test_tail_values(void)
+{
+    dataframe_t *df;
+    dataframe_t *orig;
+
+    section("df_tail - VALEURS");
+
+    /* tail(1) doit donner la dernière ligne: Charlie, 35, Berlin */
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_tail(orig, 1);
+    check_str_val("tail(1): col[0][0] = Charlie (derniere ligne)", df, 0, 0, "Charlie");
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_tail(orig, 1);
+    check_uint_val("tail(1): col[1][0] = 35", df, 1, 0, 35);
+    df_free(orig);
+
+    /* tail(2) doit donner Bob puis Charlie dans l'ordre */
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_tail(orig, 2);
+    check_str_val("tail(2): col[0][0] = Bob", df, 0, 0, "Bob");
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/basic.csv", ",");
+    df = df_tail(orig, 2);
+    check_str_val("tail(2): col[0][1] = Charlie", df, 0, 1, "Charlie");
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/multi_types.csv", ",");
+    df = df_tail(orig, 2);
+    check_float_val("tail multi-types: ratio[1] = 5.5 (derniere)", df, 4, 1, 5.5f, 0.01f);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/negative_only.csv", ",");
+    df = df_tail(orig, 1);
+    check_int_val("tail negatifs: derniere valeur = -5", df, 1, 0, -5);
+    df_free(orig);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_shape                                                       */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void test_shape(void)
+{
+    dataframe_t *df;
+    dataframe_shape_t shape;
+    char buf[256];
+
+    section("df_shape");
+
+    df = df_read_csv("test_csv/basic.csv", ",");
+    if (!df) { fail("shape basic: df NULL", ""); return; }
+    shape = df_shape(df);
+    if (shape.nb_rows == 3 && shape.nb_columns == 3)
+        pass("shape basic: (3, 3)");
+    else {
+        snprintf(buf, sizeof(buf), "(%d, %d) attendu (3, 3)",
+            shape.nb_rows, shape.nb_columns);
+        fail("shape basic", buf);
+    }
+    df_free(df);
+
+    df = df_read_csv("test_csv/single_value.csv", ",");
+    if (!df) { fail("shape 1x1: df NULL", ""); return; }
+    shape = df_shape(df);
+    if (shape.nb_rows == 1 && shape.nb_columns == 1)
+        pass("shape 1x1: (1, 1)");
+    else
+        fail("shape 1x1", "attendu (1, 1)");
+    df_free(df);
+
+    df = df_read_csv("test_csv/many_columns.csv", ",");
+    if (!df) { fail("shape many cols: df NULL", ""); return; }
+    shape = df_shape(df);
+    if (shape.nb_rows == 1 && shape.nb_columns == 10)
+        pass("shape many cols: (1, 10)");
+    else
+        fail("shape many cols", "attendu (1, 10)");
+    df_free(df);
+
+    df = df_read_csv("test_csv/header_only.csv", ",");
+    if (!df) { pass("shape header only: NULL acceptable"); return; }
+    shape = df_shape(df);
+    if (shape.nb_rows == 0 && shape.nb_columns == 3)
+        pass("shape header only: (0, 3)");
+    else
+        fail("shape header only", "attendu (0, 3)");
+    df_free(df);
+
+    /* df_shape retourne une struct par valeur, pas un pointeur */
+    df = df_read_csv("test_csv/multi_types.csv", ",");
+    if (!df) { fail("shape multi: df NULL", ""); return; }
+    shape = df_shape(df);
+    if (shape.nb_rows == 5 && shape.nb_columns == 5)
+        pass("shape multi_types: (5, 5)");
+    else {
+        snprintf(buf, sizeof(buf), "(%d, %d) attendu (5, 5)",
+            shape.nb_rows, shape.nb_columns);
+        fail("shape multi_types", buf);
+    }
+    df_free(df);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_info / df_describe (smoke tests)                           */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void test_info_describe(void)
+{
+    dataframe_t *df;
+
+    section("df_info / df_describe - SMOKE TESTS (pas de crash)");
+
+    df = df_read_csv("test_csv/basic.csv", ",");
+    if (!df) { fail("info basic: df NULL", ""); return; }
+    printf("  [INFO] Sortie de df_info:\n");
+    df_info(df);
+    pass("df_info basic: pas de crash");
+    df_free(df);
+
+    df = df_read_csv("test_csv/multi_types.csv", ",");
+    if (!df) { fail("info multi: df NULL", ""); return; }
+    df_info(df);
+    pass("df_info multi_types: pas de crash");
+    df_free(df);
+
+    df = df_read_csv("test_csv/multi_types.csv", ",");
+    if (!df) { fail("describe: df NULL", ""); return; }
+    printf("  [DESCRIBE] Sortie de df_describe:\n");
+    df_describe(df);
+    pass("df_describe multi_types: pas de crash");
+    df_free(df);
+
+    df = df_read_csv("test_csv/basic.csv", ",");
+    if (!df) { fail("describe strings: df NULL", ""); return; }
+    df_describe(df);
+    pass("df_describe sur strings uniquement: pas de crash");
+    df_free(df);
+
+    df = df_read_csv("test_csv/types_float.csv", ",");
+    if (!df) { fail("describe float: df NULL", ""); return; }
+    df_describe(df);
+    pass("df_describe float: pas de crash");
+    df_free(df);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_get_value                                                   */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void test_get_value(void)
+{
+    dataframe_t *df;
+    void *val;
+    char buf[256];
+
+    section("df_get_value");
+
+    df = df_read_csv("test_csv/basic.csv", ",");
+    if (!df) { fail("get_value: df NULL", ""); return; }
+
+    val = df_get_value(df, 0, "name");
+    if (val && strcmp(((data_t *)val)->str, "Alice") == 0)
+        pass("get_value(0, name) = Alice");
+    else
+        fail("get_value(0, name)", "attendu Alice");
+
+    val = df_get_value(df, 2, "name");
+    if (val && strcmp(((data_t *)val)->str, "Charlie") == 0)
+        pass("get_value(2, name) = Charlie");
+    else
+        fail("get_value(2, name)", "attendu Charlie");
+
+    val = df_get_value(df, 0, "age");
+    if (val && ((data_t *)val)->ui == 25)
+        pass("get_value(0, age) = 25");
+    else {
+        snprintf(buf, sizeof(buf), "attendu 25, got %u",
+            val ? ((data_t *)val)->ui : 0);
+        fail("get_value(0, age)", buf);
+    }
+
+    val = df_get_value(df, 1, "age");
+    if (val && ((data_t *)val)->ui == 30)
+        pass("get_value(1, age) = 30");
+    else
+        fail("get_value(1, age)", "attendu 30");
+
+    val = df_get_value(df, 0, "colonne_inexistante");
+    if (!val)
+        pass("get_value colonne inexistante -> NULL");
+    else
+        fail("get_value colonne inexistante", "attendu NULL");
+
+    val = df_get_value(df, 99, "name");
+    if (!val)
+        pass("get_value row hors bornes -> NULL");
+    else
+        fail("get_value row hors bornes", "attendu NULL");
+
+    val = df_get_value(df, 0, NULL);
+    if (!val)
+        pass("get_value column NULL -> NULL");
+    else
+        fail("get_value column NULL", "attendu NULL");
+
+    val = df_get_value(NULL, 0, "name");
+    if (!val)
+        pass("get_value df NULL -> NULL");
+    else
+        fail("get_value df NULL", "attendu NULL");
+
+    df_free(df);
+
+    df = df_read_csv("test_csv/types_float.csv", ",");
+    if (!df) { fail("get_value float: df NULL", ""); return; }
+    val = df_get_value(df, 1, "price");
+    if (val) {
+        float diff = ((data_t *)val)->f - 3.14f;
+        if (diff < 0) diff = -diff;
+        if (diff < 0.01f)
+            pass("get_value float: price[1] = 3.14");
+        else
+            fail("get_value float", "attendu 3.14");
+    } else {
+        fail("get_value float", "val est NULL");
+    }
+    df_free(df);
+
+    df = df_read_csv("test_csv/types_bool.csv", ",");
+    if (!df) { fail("get_value bool: df NULL", ""); return; }
+    val = df_get_value(df, 0, "active");
+    if (val && ((data_t *)val)->b == true)
+        pass("get_value bool: active[0] = true");
+    else
+        fail("get_value bool", "attendu true");
+    df_free(df);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_get_values                                                  */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void test_get_values(void)
+{
+    dataframe_t *df;
+    void **vals;
+    char buf[256];
+
+    section("df_get_values");
+
+    df = df_read_csv("test_csv/basic.csv", ",");
+    if (!df) { fail("get_values: df NULL", ""); return; }
+
+    vals = df_get_values(df, "name");
+    if (!vals) {
+        fail("get_values name: retourne NULL", "");
+        df_free(df);
+        return;
+    }
+    pass("get_values name: non-NULL");
+
+    if (strcmp(((data_t *)vals[0])->str, "Alice") == 0)
+        pass("get_values name[0] = Alice");
+    else {
+        snprintf(buf, sizeof(buf), "attendu Alice, got %s",
+            ((data_t *)vals[0])->str);
+        fail("get_values name[0]", buf);
+    }
+
+    if (strcmp(((data_t *)vals[1])->str, "Bob") == 0)
+        pass("get_values name[1] = Bob");
+    else
+        fail("get_values name[1]", "attendu Bob");
+
+    if (strcmp(((data_t *)vals[2])->str, "Charlie") == 0)
+        pass("get_values name[2] = Charlie");
+    else
+        fail("get_values name[2]", "attendu Charlie");
+
+    free(vals);
+
+    vals = df_get_values(df, "age");
+    if (!vals) {
+        fail("get_values age: retourne NULL", "");
+        df_free(df);
+        return;
+    }
+    if (((data_t *)vals[0])->ui == 25)
+        pass("get_values age[0] = 25");
+    else
+        fail("get_values age[0]", "attendu 25");
+
+    if (((data_t *)vals[2])->ui == 35)
+        pass("get_values age[2] = 35");
+    else
+        fail("get_values age[2]", "attendu 35");
+
+    free(vals);
+
+    vals = df_get_values(df, "colonne_inexistante");
+    if (!vals)
+        pass("get_values colonne inexistante -> NULL");
+    else {
+        fail("get_values colonne inexistante", "attendu NULL");
+        free(vals);
+    }
+
+    vals = df_get_values(NULL, "name");
+    if (!vals)
+        pass("get_values df NULL -> NULL");
+    else {
+        fail("get_values df NULL", "attendu NULL");
+        free(vals);
+    }
+
+    df_free(df);
+
+    df = df_read_csv("test_csv/types_float.csv", ",");
+    if (!df) { fail("get_values float: df NULL", ""); return; }
+    vals = df_get_values(df, "price");
+    if (vals) {
+        float diff = ((data_t *)vals[0])->f - 9.99f;
+        if (diff < 0) diff = -diff;
+        if (diff < 0.01f)
+            pass("get_values float[0] = 9.99");
+        else
+            fail("get_values float[0]", "attendu 9.99");
+        free(vals);
+    } else {
+        fail("get_values float: NULL", "");
+    }
+    df_free(df);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_get_unique_values                                           */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void test_get_unique_values(void)
+{
+    dataframe_t *df;
+    void **vals;
+    int count;
+
+    section("df_get_unique_values");
+
+    df = df_read_csv("test_csv/unique_test.csv", ",");
+    if (!df) { fail("unique: df NULL", ""); return; }
+
+    /* name: Alice, Bob, Charlie (3 uniques sur 6) */
+    vals = df_get_unique_values(df, "name");
+    if (!vals) {
+        fail("unique name: retourne NULL", "");
+        df_free(df);
+        return;
+    }
+    pass("unique name: non-NULL");
+
+    count = 0;
+    for (int i = 0; i < df->nb_rows; i++) {
+        if (vals[i])
+            count++;
+    }
+    if (count == 3) {
+        pass("unique name: 3 valeurs uniques");
+    } else {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "got %d, attendu 3", count);
+        fail("unique name: compte", buf);
+    }
+    free(vals);
+
+    /* score: 10, 20, 30 (3 uniques sur 6) */
+    vals = df_get_unique_values(df, "score");
+    if (vals) {
+        count = 0;
+        for (int i = 0; i < df->nb_rows; i++) {
+            if (vals[i]) count++;
+        }
+        if (count == 3)
+            pass("unique score: 3 valeurs uniques");
+        else {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "got %d, attendu 3", count);
+            fail("unique score", buf);
+        }
+        free(vals);
+    } else {
+        fail("unique score: NULL", "");
+    }
+
+    vals = df_get_unique_values(df, "colonne_inexistante");
+    if (!vals)
+        pass("unique colonne inexistante -> NULL");
+    else {
+        fail("unique colonne inexistante", "attendu NULL");
+        free(vals);
+    }
+
+    vals = df_get_unique_values(NULL, "name");
+    if (!vals)
+        pass("unique df NULL -> NULL");
+    else {
+        fail("unique df NULL", "attendu NULL");
+        free(vals);
+    }
+
+    df_free(df);
+
+    /* colonne avec que des valeurs identiques */
+    df = df_read_csv("test_csv/zero_values.csv", ",");
+    if (!df) { fail("unique zeros: df NULL", ""); return; }
+    vals = df_get_unique_values(df, "value");
+    if (vals) {
+        count = 0;
+        for (int i = 0; i < df->nb_rows; i++) {
+            if (vals[i]) count++;
+        }
+        if (count == 1)
+            pass("unique zeros: 1 valeur unique (0)");
+        else {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "got %d, attendu 1", count);
+            fail("unique zeros", buf);
+        }
+        free(vals);
+    } else {
+        fail("unique zeros: NULL", "");
+    }
+    df_free(df);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  df_apply                                                       */
+/* ═══════════════════════════════════════════════════════════════ */
+
+static void *double_int(void *val)
+{
+    int *n = (int *)val;
+    int *result = malloc(sizeof(int));
+
+    *result = *n * 2;
+    return result;
+}
+
+static void *add_one_uint(void *val)
+{
+    unsigned int *n = (unsigned int *)val;
+    unsigned int *result = malloc(sizeof(unsigned int));
+
+    *result = *n + 1;
+    return result;
+}
+
+static void *negate_float(void *val)
+{
+    float *f = (float *)val;
+    float *result = malloc(sizeof(float));
+
+    *result = -*f;
+    return result;
+}
+
+static void *upper_first(void *val)
+{
+    char **str = (char **)val;
+    char *result = malloc(strlen(*str) + 1);
+
+    strcpy(result, *str);
+    if (result[0] >= 'a' && result[0] <= 'z')
+        result[0] -= 32;
+    return &result;
+}
+
+static void test_apply(void)
+{
+    dataframe_t *df;
+    dataframe_t *orig;
+    dataframe_t *result;
+
+    section("df_apply");
+
+    /* INT */
+    orig = df_read_csv("test_csv/apply_int.csv", ",");
+    if (!orig) { fail("apply int: orig NULL", ""); return; }
+    result = df_apply(orig, "value", double_int);
+    if (!result) {
+        fail("apply int: result NULL", "");
+        df_free(orig);
+        return;
+    }
+    check_int_val("apply double_int: col[1][0] = 20", result, 1, 0, 20);
+
+    orig = df_read_csv("test_csv/apply_int.csv", ",");
+    result = df_apply(orig, "value", double_int);
+    check_int_val("apply double_int: col[1][1] = 40", result, 1, 1, 40);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/apply_int.csv", ",");
+    result = df_apply(orig, "value", double_int);
+    check_int_val("apply double_int: col[1][2] = 60", result, 1, 2, 60);
+    df_free(orig);
+
+    /* colonne non modifiee reste intacte */
+    orig = df_read_csv("test_csv/apply_int.csv", ",");
+    result = df_apply(orig, "value", double_int);
+    check_uint_val("apply: col non ciblee intacte col[0][0] = 1", result, 0, 0, 1);
+    df_free(orig);
+
+    /* UINT */
+    orig = df_read_csv("test_csv/types_uint.csv", ",");
+    if (!orig) { fail("apply uint: orig NULL", ""); return; }
+    result = df_apply(orig, "score", add_one_uint);
+    check_uint_val("apply add_one_uint: col[1][0] = 101", result, 1, 0, 101);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/types_uint.csv", ",");
+    result = df_apply(orig, "score", add_one_uint);
+    check_uint_val("apply add_one_uint: col[1][2] = 51", result, 1, 2, 51);
+    df_free(orig);
+
+    /* FLOAT */
+    orig = df_read_csv("test_csv/types_float.csv", ",");
+    if (!orig) { fail("apply float: orig NULL", ""); return; }
+    result = df_apply(orig, "price", negate_float);
+    check_float_val("apply negate_float: col[1][0] = -9.99", result, 1, 0, -9.99f, 0.01f);
+    df_free(orig);
+
+    orig = df_read_csv("test_csv/types_float.csv", ",");
+    result = df_apply(orig, "price", negate_float);
+    check_float_val("apply negate_float: col[1][1] = -3.14", result, 1, 1, -3.14f, 0.01f);
+    df_free(orig);
+
+    /* erreurs */
+    orig = df_read_csv("test_csv/apply_int.csv", ",");
+    result = df_apply(orig, "colonne_inexistante", double_int);
+    if (!result)
+        pass("apply colonne inexistante -> NULL");
+    else {
+        fail("apply colonne inexistante", "attendu NULL");
+        df_free(result);
+    }
+    df_free(orig);
+
+    result = df_apply(NULL, "value", double_int);
+    if (!result)
+        pass("apply df NULL -> NULL");
+    else {
+        fail("apply df NULL", "attendu NULL");
+        df_free(result);
+    }
+
+    orig = df_read_csv("test_csv/apply_int.csv", ",");
+    result = df_apply(orig, NULL, double_int);
+    if (!result)
+        pass("apply column NULL -> NULL");
+    else {
+        fail("apply column NULL", "attendu NULL");
+        df_free(result);
+    }
+    df_free(orig);
+
+    /* independance original */
+    orig = df_read_csv("test_csv/apply_int.csv", ",");
+    result = df_apply(orig, "value", double_int);
+    if (result && orig->columns[1].data[0].i == 10)
+        pass("apply: original inchange apres apply");
+    else
+        fail("apply: original modifie", "attendu 10");
+    if (result) df_free(result);
+    df_free(orig);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  main                                                           */
+/* ═══════════════════════════════════════════════════════════════ */
+
+int main(void)
+{
+    printf("\033[1;33m");
+    printf("╔══════════════════════════════════════════════════╗\n");
+    printf("║  TEST SUITE: basiques + utilitaires + apply      ║\n");
+    printf("╚══════════════════════════════════════════════════╝\n");
+    printf("\033[0m");
+
+    test_head_shape();
+    test_head_values();
+    test_head_independence();
+    test_tail_shape();
+    test_tail_values();
+    test_shape();
+    test_info_describe();
+    test_get_value();
+    test_get_values();
+    test_get_unique_values();
+    test_apply();
+
+    printf("\n\033[1m══════════════════════════════════════════════════\033[0m\n");
+    printf("Total  : %d tests\n", g_total);
+    printf("\033[32mPassés : %d\033[0m\n", g_passed);
+    printf("\033[31mÉchoués: %d\033[0m\n", g_failed);
+    printf("\033[1m══════════════════════════════════════════════════\033[0m\n");
+
+    return (g_failed > 0) ? 84 : 0;
+}

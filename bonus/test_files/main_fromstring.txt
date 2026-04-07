@@ -1,0 +1,13 @@
+#include "./include/dataframe.h"
+
+int main(void)
+{
+    dataframe_t *df = df_read_csv("./test.csv", NULL);
+    df_info(df);
+    dataframe_t *new_df = df_to_type(df, "city", FLOAT);
+    df_info(new_df);
+
+    df_write_csv(df, "df.csv");
+    df_write_csv(new_df, "new_df.csv");
+    return 0;
+}

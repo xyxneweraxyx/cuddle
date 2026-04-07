@@ -1,0 +1,6 @@
+name,age,score,active,ratio
+Alice,25,100,true,1.5
+Bob,30,200,false,2.5
+Charlie,35,300,true,3.5
+Dave,40,400,false,4.5
+Eve,45,500,true,5.5
